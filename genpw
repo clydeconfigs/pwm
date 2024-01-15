@@ -4,6 +4,6 @@ cleanup() {
 }
 trap cleanup EXIT
 seed="$(gpg -dq ~/Media/pw/seed.gpg)" && \
-echo -n "$1" | openssl dgst -sha256 -binary -hmac "$seed" | base64 | cut -d ' ' -f 2 | cut -c 1-29 | sed 's/^/!/' | xclip -sel clip
+echo -n "$1" | openssl dgst -sha256 -binary -hmac "$seed" | base64 | cut -c 1-29 | sed 's/^/!/' | xclip -sel clip
 sleep 12
 echo "" | xclip -sel clip
