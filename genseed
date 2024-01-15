@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -e "~/Media/pw/seed.gpg" ]; then
+	echo "seed exists in this folder"
+else
+	echo "$(openssl rand 64)" | gpg -c --output seed.gpg
+fi

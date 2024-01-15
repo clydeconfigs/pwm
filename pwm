@@ -1,0 +1,101 @@
+#!/bin/bash
+
+entries_file="$HOME/Media/pw/entries"
+
+list_entries() {
+    IFS=$'\n' 
+    entries=($(cat "$entries_file"))
+    unset IFS 
+    options=()
+    for entry in "${entries[@]}"; do
+        options+=("$entry" "")
+    done
+    dialog --title "List of Entries" --menu "choose an entry:" 15 40 10 "${options[@]}" 2>&1 >/dev/tty
+}
+
+copy_entry() {
+    selected_entry="$1"
+    if [ -e "$entries_file" ]; then
+        entry_content=$(grep "^$selected_entry$" "$entries_file")
+        if [ -n "$entry_content" ]; then
+            echo "$entry_content" | xclip -sel clip
+            sleep 0.5
+            dialog --title "Entry Copied" --msgbox "entry copied to clipboard:\n\n$entry_content" 10 40
+        else
+            dialog --title "Error" --msgbox "selected entry not found." 10 40
+        fi
+    else
+        dialog --title "Error" --msgbox "no entries found in $entries_file." 10 40
+    fi
+}
+
+add_entry() {
+    entry_content=$(dialog --title "Enter Entry Content" --inputbox "enter the content for the new entry:" 10 40 2>&1 >/dev/tty)
+    echo "$entry_content" >> "$entries_file"
+    dialog --title "entry added" --msgbox "entry added to $entries_file." 10 40
+}
+
+generate_password() {
+    seed=$(gpg -dq seed.gpg)
+    password=$(echo -n "$1" | openssl dgst -sha256 -binary -hmac "$seed" | base64 | cut -d ' ' -f 2 | cut -c 1-29 | sed 's/^/!/')
+    
+    echo "$password" | xclip -sel clip
+
+    {
+        for ((i = 0; i < 50; i++)); do
+            sleep 0.2
+            echo $((i * 2))
+        done
+    } | dialog --title "clearing clipboard" --gauge "clearing clipboard..." 10 40 0
+
+    echo -n | xclip -sel clip
+
+    dialog --title "password generated" --msgbox "password copied to clipboard and clipboard cleared." 10 40
+}
+
+
+generate_seed() {
+    if [ -e "$HOME/Media/pw/seed.gpg" ]; then
+        dialog --title "seed generation" --msgbox "seed already exists in this folder." 10 40
+    else
+        echo "$(openssl rand 64)" | gpg -c --output $HOME/Media/pw/seed.gpg
+        dialog --title "seed Generation" --msgbox "seed generated and stored in seed.gpg." 10 40
+    fi
+}
+
+main_menu() {
+    dialog --clear --title "password generator" --menu "choose an option:" 15 40 6 \
+    1 "generate password" \
+    2 "generate seed" \
+    3 "list entries" \
+    4 "add entry" \
+    5 "quit" \
+    2>&1 >/dev/tty
+}
+
+while true; do
+    choice=$(main_menu)
+
+    case $choice in
+        1)
+            passphrase=$(dialog --title "Enter Passphrase" --inputbox "Enter a name of a website or thing to generate a password:" 10 40 2>&1 >/dev/tty)
+            generate_password "$passphrase"
+            ;;
+        2)
+            generate_seed
+            ;;
+        3)
+            selected_entry=$(list_entries)
+            copy_entry "$selected_entry"
+            ;;
+        4)
+            add_entry
+            ;;
+        5)
+            exit 0
+            ;;
+        *)
+            dialog --title "Invalid Choice" --msgbox "Please choose a valid option." 10 40
+            ;;
+    esac
+done
