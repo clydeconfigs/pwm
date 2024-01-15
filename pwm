@@ -1,6 +1,7 @@
 #!/bin/bash
 
 entries_file="$HOME/Media/pw/entries"
+deleted_entries_file="$HOME/Media/pw/deleted_entries"
 
 list_entries() {
     IFS=$'\n' 
@@ -26,6 +27,23 @@ copy_entry() {
         fi
     else
         dialog --title "Error" --msgbox "no entries found in $entries_file." 10 40
+    fi
+}
+
+add_entry() {
+    entry_content=$(dialog --title "Enter Entry Content" --inputbox "enter the content for the new entry:" 10 40 2>&1 >/dev/tty)
+    echo "$entry_content" >> "$entries_file"
+    dialog --title "entry added" --msgbox "entry added to $entries_file." 10 40
+}
+
+remove_entry() {
+    selected_entry=$(list_entries)
+    if [ -n "$selected_entry" ]; then
+        sed -i "/^$selected_entry$/d" "$entries_file"  # Delete the line from entries_file
+        echo "$selected_entry" >> "$deleted_entries_file"  # Append to deleted_entries_file
+        dialog --title "Entry Removed" --msgbox "entry removed from $entries_file and added to $deleted_entries_file." 10 40
+    else
+        dialog --title "Error" --msgbox "no entry selected." 10 40
     fi
 }
 
@@ -69,7 +87,8 @@ main_menu() {
     2 "generate seed" \
     3 "list entries" \
     4 "add entry" \
-    5 "quit" \
+    5 "remove entry" \
+    6 "quit" \
     2>&1 >/dev/tty
 }
 
@@ -85,13 +104,15 @@ while true; do
             generate_seed
             ;;
         3)
-            selected_entry=$(list_entries)
-            copy_entry "$selected_entry"
+            copy_entry "$(list_entries)"
             ;;
         4)
             add_entry
             ;;
         5)
+            remove_entry
+            ;;
+        6)
             exit 0
             ;;
         *)
