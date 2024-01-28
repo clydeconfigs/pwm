@@ -1,9 +1,10 @@
 #!/bin/sh
+seed_file="~/Media/pw/seed.gpg"
 cleanup() {
 	echo "" | xclip -sel clip
 }
 trap cleanup EXIT
-seed="$(gpg -dq ~/Media/pw/seed.gpg)" && \
+seed="$(gpg -dq $seed_file)" && \
 echo -n "$1" | openssl dgst -sha256 -binary -hmac "$seed" | base64 | cut -c 1-29 | sed 's/^/!/' | xclip -sel clip
 sleep 12
 echo "" | xclip -sel clip

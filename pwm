@@ -2,6 +2,7 @@
 
 entries_file="$HOME/Media/pw/entries"
 deleted_entries_file="$HOME/Media/pw/deleted_entries"
+seed_file="$HOME/Media/pw/seed.gpg"
 
 list_entries() {
     IFS=$'\n' 
@@ -11,7 +12,7 @@ list_entries() {
     for entry in "${entries[@]}"; do
         options+=("$entry" "")
     done
-    dialog --title "List of Entries" --menu "choose an entry:" 15 40 10 "${options[@]}" 2>&1 >/dev/tty
+    dialog --title "List of Entries" --menu "choose an entry:" 0 0 10 "${options[@]}" 2>&1 >/dev/tty
 }
 
 copy_entry() {
@@ -19,21 +20,28 @@ copy_entry() {
     if [ -e "$entries_file" ]; then
         entry_content=$(grep "^$selected_entry$" "$entries_file")
         if [ -n "$entry_content" ]; then
-            echo "$entry_content" | xclip -sel clip
-            sleep 0.5
-            dialog --title "Entry Copied" --msgbox "entry copied to clipboard:\n\n$entry_content" 10 40
-        else
-            dialog --title "Error" --msgbox "selected entry not found." 10 40
+            word_count=$(echo "$entry_content" | wc -w)
+            if [ "$word_count" -gt 1 ]; then
+                second_word=$(echo "$entry_content" | awk '{print $2}')
+                echo -n "$second_word" | xclip -sel clip
+                sleep 0.5
+                dialog --title "Entry Copied" --msgbox "Second word copied to clipboard:\n\n$second_word" 0 0
+            else
+                first_word=$(echo "$entry_content" | awk '{print $1}')
+                echo -n "$first_word" | xclip -sel clip
+                sleep 0.5
+                dialog --title "Entry Copied" --msgbox "Only one word found, first word copied to clipboard:\n\n$first_word" 0 0
+            fi
         fi
     else
-        dialog --title "Error" --msgbox "no entries found in $entries_file." 10 40
+        dialog --title "Error" --msgbox "No entries found in $entries_file." 0 0
     fi
 }
 
 add_entry() {
-    entry_content=$(dialog --title "Enter Entry Content" --inputbox "enter the content for the new entry:" 10 40 2>&1 >/dev/tty)
+    entry_content=$(dialog --title "Enter Entry Content" --inputbox "enter the content for the new entry:" 0 0 2>&1 >/dev/tty)
     echo "$entry_content" >> "$entries_file"
-    dialog --title "entry added" --msgbox "entry added to $entries_file." 10 40
+    dialog --title "entry added" --msgbox "entry added to $entries_file." 0 0
 }
 
 remove_entry() {
@@ -41,30 +49,28 @@ remove_entry() {
     if [ -n "$selected_entry" ]; then
         sed -i "/^$selected_entry$/d" "$entries_file"  # Delete the line from entries_file
         echo "$selected_entry" >> "$deleted_entries_file"  # Append to deleted_entries_file
-        dialog --title "Entry Removed" --msgbox "entry removed from $entries_file and added to $deleted_entries_file." 10 40
-    else
-        dialog --title "Error" --msgbox "no entry selected." 10 40
+        dialog --title "Entry Removed" --msgbox "entry removed from $entries_file and added to $deleted_entries_file." 0 0
     fi
 }
 
 add_entry() {
-    entry_content=$(dialog --title "Enter Entry Content" --inputbox "enter the content for the new entry:" 10 40 2>&1 >/dev/tty)
+    entry_content=$(dialog --title "Enter Entry Content" --inputbox "enter the content for the new entry:" 0 0 2>&1 >/dev/tty)
     echo "$entry_content" >> "$entries_file"
-    dialog --title "entry added" --msgbox "entry added to $entries_file." 10 40
+    dialog --title "entry added" --msgbox "entry added to $entries_file." 0 0
 }
 
 generate_password() {
-    seed=$(gpg -dq seed.gpg)
-    password=$(echo -n "$1" | openssl dgst -sha256 -binary -hmac "$seed" | base64 | cut -d ' ' -f 2 | cut -c 1-29 | sed 's/^/!/')
+    seed=$(gpg -dq $seed_file)
+    password=$(echo -n "$1" | openssl dgst -sha256 -binary -hmac "$seed" | base64 | cut -c 1-29 | sed 's/^/!/')
     
-    echo "$password" | xclip -sel clip
+    echo -n "$password" | xclip -sel clip
 
     {
         for ((i = 0; i < 50; i++)); do
             sleep 0.2
             echo $((i * 2))
         done
-    } | dialog --title "clearing clipboard" --gauge "clearing clipboard..." 10 40 0
+    } | dialog --title "clearing clipboard" --gauge "clearing clipboard..." 0 0 0
 
     echo -n | xclip -sel clip
 
@@ -73,21 +79,30 @@ generate_password() {
 
 
 generate_seed() {
-    if [ -e "$HOME/Media/pw/seed.gpg" ]; then
-        dialog --title "seed generation" --msgbox "seed already exists in this folder." 10 40
+    if [ -e "$seed_file" ]; then
+        dialog --title "seed generation" --msgbox "seed already exists in this folder." 0 0
     else
-        echo "$(openssl rand 64)" | gpg -c --output $HOME/Media/pw/seed.gpg
-        dialog --title "seed Generation" --msgbox "seed generated and stored in seed.gpg." 10 40
-    fi
+    	read -p "To continue, please enter 'YES' in uppercase: " user_input
+
+	    if [ "$user_input" == "YES" ]; then
+	        echo "User entered 'YES'. Continuing..."
+	        echo "$(openssl rand 64)" | gpg -c --output $seed_file
+	        dialog --title "seed Generation" --msgbox "seed generated and stored in seed.gpg." 0 0
+
+	    else
+	        echo "Invalid input. Please enter 'YES' in uppercase to continue."
+	        return
+	    fi
+  	fi
 }
 
 main_menu() {
-    dialog --clear --title "password generator" --menu "choose an option:" 15 40 6 \
+    dialog --clear --title "password generator" --menu "choose an option:" 0 0 6 \
     1 "generate password" \
-    2 "generate seed" \
-    3 "list entries" \
-    4 "add entry" \
-    5 "remove entry" \
+    2 "list entries" \
+    3 "add entry" \
+    4 "remove entry" \
+    5 "generate seed" \
     6 "quit" \
     2>&1 >/dev/tty
 }
@@ -97,26 +112,26 @@ while true; do
 
     case $choice in
         1)
-            passphrase=$(dialog --title "Enter Passphrase" --inputbox "Enter a name of a website or thing to generate a password:" 10 40 2>&1 >/dev/tty)
+            passphrase=$(dialog --title "Enter Passphrase" --inputbox "Enter a name of a website or thing to generate a password:" 0 0 2>&1 >/dev/tty)
             generate_password "$passphrase"
             ;;
         2)
-            generate_seed
-            ;;
-        3)
             copy_entry "$(list_entries)"
             ;;
-        4)
+        3)
             add_entry
             ;;
-        5)
+        4)
             remove_entry
+            ;;
+        5)
+            generate_seed
             ;;
         6)
             exit 0
             ;;
         *)
-            dialog --title "Invalid Choice" --msgbox "Please choose a valid option." 10 40
+            dialog --title "Invalid Choice" --msgbox "Please choose a valid option." 0 0
             ;;
     esac
 done
